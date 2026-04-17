@@ -5,148 +5,120 @@ This code is a PyTorch implementation of our ICLR'26 paper "Task-Aware Data Sele
 ## Overview
 
 The pipeline consists of 4 main steps:
-1. **Step 1**: Dataset splitting and target annotation
-2. **Step 2**: Tag clustering and propagation 
-3. **Step 3**: Keyword extraction and data scoring
-4. **Step 4**: Quality-based task-oriented selection
+1. **Step 1** (§4.1, §5.1): Dataset splitting and target annotation with proxy labels
+2. **Step 2** (§4.2): Proxy-label clustering and propagation to source data
+3. **Step 3** (§4.3): Keyword extraction, sample scoring, and OOD filtering
+4. **Step 4** (§4.4, Appendix D.7): Incremental sampling for distribution matching and multi-domain fusion
 
-## Dataset preparation
+## Installation
 
 ```bash
-# eval data
+pip install -e .
+```
+
+## Dataset Preparation
+
+```bash
+# Download evaluation data
 bash data/prepare_eval_data.sh
 
-# train data
+# Download training data
 bash data/prepare_train_data.sh
 ```
 
-## Step 1: Generate Labels
+## Running the Pipeline
 
-### 1.1 Dataset Splitting
-Split evaluation datasets into target (20%) and evaluation (80%) sets.
-
-```bash
-cd step1_generate_labels
-python 1dataset_splitter.py
-```
-
-
-### 1.2 Target Split Merge
-Merge all target datasets into a unified parquet format.
+### Full pipeline
 
 ```bash
-python 2target_split_merge.py
+bash scripts/run_pipeline.sh
 ```
 
-
-### 1.3 Target Annotation
-Annotate target dataset with tags using Qwen2.5-7B-Instruct.
+### Step-by-step
 
 ```bash
-python 3target_annotation.py
+# Step 1: Generate Proxy-Labels
+python -m tads.step1                          # run all substeps
+python -m tads.step1 --substep split          # split eval datasets (20:80)
+python -m tads.step1 --substep merge          # merge target sets into parquet
+python -m tads.step1 --substep annotate       # annotate with Qwen2.5-7B-Instruct
+
+# Step 2: Clustering and Propagation
+python -m tads.step2                          # run all substeps
+python -m tads.step2 --substep cluster        # K-means clustering on tags
+python -m tads.step2 --substep cache          # cache BGE-M3 embeddings
+python -m tads.step2 --substep propagate      # propagate tags to training set
+
+# Step 3: OOD Filtering
+python -m tads.step3                          # run all substeps
+python -m tads.step3 --substep extract        # extract keywords from anchors
+python -m tads.step3 --substep score          # LLM-based quality scoring
+python -m tads.step3 --substep filter         # threshold-based OOD filtering
+
+# Step 4: Selection and Fusion
+python -m tads.step4                          # run all substeps
+python -m tads.step4 --substep match          # incremental distribution matching (Algorithm 1)
+python -m tads.step4 --substep fuse           # multi-domain equal-weight voting fusion
 ```
 
-
-## Step 2: Clustering and Propagating
-
-### 2.1 Testset Tag Cluster Merge
-Cluster and deduplicate tags from target annotation.
+### Custom configuration
 
 ```bash
-cd ../step2_clustering_and_propagating
-python 1testset_tag_cluster_merge.py
+python -m tads.step1 --config configs/default.yaml --data-dir /path/to/data
+python -m tads.step3 --substep score --batch-size 128
 ```
-
-
-### 2.2 Training Set Content Embedding Cache
-Generate embeddings for training set content using BGE-M3 model.
-
-```bash
-python 2training_set_content_embedding_cache.py
-```
-
-
-### 2.3 Propagating Tags Using Cached Embedding
-Propagate clustered tags to training set using semantic similarity.
-
-```bash
-python 3propagating_tags_using_cached_embedding.py
-```
-
-
-## Step 3: Tag Clustering and Label Training Set
-
-### 3.1 Keyword Extraction
-Extract keywords from clustered tags using vLLM and Qwen2.5-7B-Instruct.
-
-```bash
-cd ../step3_tag_clustering_label_training_set
-python 1keyword_extraction_vllm.py
-```
-
-
-### 3.2 Score Based on Anchors
-Score training data using keyword mapping and Qwen2.5-7B-Instruct.
-
-```bash
-python 2score_based_on_anchors.py
-```
-
-
-### 3.3 Filter OOD
-Filter out-of-distribution samples based on score thresholds.
-
-```bash
-python 3filter_ood.py
-```
-
-
-## Step 4: Quality Task-Oriented Selection
-
-### 4.1 Mitigating Domain Shift
-Select high-quality samples using distribution-based sampling.
-
-```bash
-cd ../step4_quality_task_orient
-python 1mitigating_domain_shift.py
-python 2joint_filter_fusion.py
-```
-
-
 
 ## File Structure
 
 ```
-/
-├── step1_generate_labels/
-│   ├── 1dataset_splitter.py          # Split evaluation datasets
-│   ├── 2target_split_merge.py        # Merge target datasets
-│   └── 3target_annotation.py         # Annotate target data
-├── step2_clustering_and_propagating/
-│   ├── 1testset_tag_cluster_merge.py # Cluster and deduplicate tags
-│   ├── 2training_set_content_embedding_cache.py # Cache embeddings
-│   └── 3propagating_tags_using_cached_embedding.py # Propagate tags
-├── step3_tag_clustering_label_training_set/
-│   ├── 1keyword_extraction_vllm.py   # Extract keywords
-│   ├── 2score_based_on_anchors.py    # Score data
-│   └── 3filter_ood.py                # Filter OOD samples
-├── step4_quality_task_orient/
-│   └── 1mitigating_domain_shift.py   # Quality-based selection
-|   └── 2joint_filter_fusion.py       # match multiple label domain
-├── data/                             # Data directory
-|   ├── eval/                         # Evaluation datasets
-|   ├── train_embeds_and_tags/        # Cached embeddings
-|   ├── prepare_*_data.sh             # Prepare datasets
-|   └── *.pt, *.json                  # Processed data files
-└── consistency_precision_reuslt/     # consistency and precision
-    ├── consistency_gpt_eval.xlsx
-    ├── consistency_human_eval.xlsx
-    ├── precision_gpt_eval.xlsx
-    └── precision_human_eval.xlsx
-
+TADS/
+├── configs/
+│   └── default.yaml                 # Centralized pipeline configuration
+├── src/
+│   └── tads/
+│       ├── config.py                # Configuration dataclasses and loader
+│       ├── vllm_engine.py           # Unified vLLM initialization
+│       ├── utils/
+│       │   ├── data_io.py           # Data loading/saving (json, parquet, pt)
+│       │   ├── tags.py              # Tag normalization, analysis, long-tail detection
+│       │   └── embeddings.py        # BGE-M3 encoding and top-k matching
+│       ├── step1/                   # §4.1, §5.1: Proxy-label generation
+│       │   ├── split_datasets.py    # Split eval datasets 20:80
+│       │   ├── merge_targets.py     # Merge target sets to Alpaca format
+│       │   └── annotate.py          # LLM annotation (Task/Style/Topic/Audience)
+│       ├── step2/                   # §4.2: Clustering and propagation
+│       │   ├── cluster_tags.py      # K-means clustering with FAISS
+│       │   ├── cache_embeddings.py  # Pre-compute BGE-M3 embeddings
+│       │   └── propagate_tags.py    # Assign anchors to training samples
+│       ├── step3/                   # §4.3: OOD filtering
+│       │   ├── extract_keywords.py  # Extract representative keywords per anchor
+│       │   ├── score_samples.py     # LLM-based quality scoring
+│       │   └── filter_ood.py        # Threshold filtering
+│       └── step4/                   # §4.4, Appendix D.7: Selection
+│           ├── distribution_match.py # Incremental sampling (Algorithm 1)
+│           └── fusion.py            # Multi-domain voting fusion
+├── scripts/
+│   └── run_pipeline.sh             # Run full pipeline
+├── data/                           # Data directory
+│   ├── eval/                       # Evaluation datasets
+│   └── prepare_*_data.sh           # Download scripts
+├── consistency_precision_result/   # Annotation quality evaluation results
+├── pyproject.toml
+├── requirements.txt
+└── README.md
 ```
 
-## Finetune & eval
+## Finetune & Eval
+
 The finetune & eval of TADS is based on [open-instruct](https://github.com/allenai/open-instruct).
 
+## Citation
 
+```bibtex
+@inproceedings{cheng2026tads,
+  title={Task-Aware Data Selection via Proxy-Label Enhanced Distribution Matching for LLM Finetuning},
+  author={Cheng, Hao and Zhang, Rui and Li, Ling and Di, Na and Wei, Jiaheng and Zhu, Zhaowei and Han, Bo},
+  booktitle={International Conference on Learning Representations},
+  year={2026}
+}
+```

@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Data files (too large for git)
+data/*.pt
+data/*.parquet
+data/*.json
+data/eval/
+data/train_embeds_and_tags/
+data/filtered/
+data/selected/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+logs/
+
+# Paper PDF
+*.pdf

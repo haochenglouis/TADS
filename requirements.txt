@@ -1,22 +1,21 @@
-torch==2.5.1
-deepspeed==0.17.6
-accelerate==1.6.0
-transformers==4.51.3
-tokenizers==0.21.4
-datasets==4.1.1
-peft==0.17.1
-sentencepiece
-bitsandbytes>=0.41.1
-protobuf
-open_clip_torch==2.18.0
-scipy
-packaging
-openai>=1.0.0
-tiktoken
-wandb
-docta.ai
-gradio>=3.50.2
-seaborn
-vllm==0.7.0
-evaluate==0.4.3
+# Core ML
+torch>=2.5.0
+transformers>=4.51.0
+datasets>=4.0.0
+vllm>=0.7.0
+
+# Embedding & Clustering
 faiss-gpu-cu12
+
+# Utilities
+json_repair
+pyyaml
+tqdm
+numpy
+pandas
+
+# Fine-tuning (used via open-instruct, not by the selection pipeline)
+# deepspeed>=0.17.0
+# accelerate>=1.6.0
+# peft>=0.17.0
+# bitsandbytes>=0.41.1

@@ -1,0 +1,65 @@
+# TADS Pipeline Configuration
+# See paper: "Task-Aware Data Selection via Proxy-Label Enhanced Distribution Matching for LLM Finetuning"
+
+base_dir: "."
+data_dir: "./data"
+random_seed: 42
+
+# --- Models ---
+models:
+  # Used in Step 1 (§4.1) for target annotation and Step 3 (§4.3) for keyword extraction / scoring
+  annotation:
+    name: "Qwen/Qwen2.5-7B-Instruct"
+    tensor_parallel_size: 2
+    gpu_memory_utilization: 0.90
+    batch_size: 32
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+      max_tokens: 2048
+      repetition_penalty: 1.2
+
+  keyword_extraction:
+    name: "Qwen/Qwen2.5-7B-Instruct"
+    tensor_parallel_size: 4
+    gpu_memory_utilization: 0.85
+    max_model_len: 16384
+    batch_size: 32
+    sampling:
+      temperature: 0.4
+      top_p: 0.9
+      max_tokens: 800
+      repetition_penalty: 1.1
+
+  scoring:
+    name: "Qwen/Qwen2.5-7B-Instruct"
+    tensor_parallel_size: 4
+    gpu_memory_utilization: 0.95
+    max_model_len: 32768
+    batch_size: 64
+    sampling:
+      temperature: 0.3
+      top_p: 0.9
+      max_tokens: 300
+
+  # Used in Step 2 (§4.2) for embedding and clustering
+  embedding:
+    name: "BAAI/bge-m3"
+    batch_size: 2048
+    max_length: 64
+
+# --- Clustering (§4.2) ---
+clustering:
+  num_clusters: 100       # k-means clusters per category
+  kmeans_iterations: 100
+  top_k: 3                # top-k tag matching (top-1 for Task)
+
+# --- Selection (§4.3, §4.4) ---
+selection:
+  target_count: 10000
+  score_thresholds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  fields: ["Topic", "Style", "Audience", "Task"]
+
+# --- Evaluation datasets ---
+eval_datasets: ["bbh", "gsm", "mmlu", "truthfulqa", "tydiqa"]
+split_ratio: 0.2  # 20% target, 80% eval

@@ -1,1 +1,2 @@
-wget https://huggingface.co/datasets/jlpang888/tulu_300k/resolve/main/data/train-00000-of-00001.parquet
+mkdir -p data
+wget -P data/ https://huggingface.co/datasets/jlpang888/tulu_300k/resolve/main/data/train-00000-of-00001.parquet

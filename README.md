@@ -18,6 +18,8 @@ pip install -e .
 
 ## Dataset Preparation
 
+> **Note:** All scripts and commands use paths relative to the repository root, and `data_dir` is resolved against the current working directory. Always run the data-preparation scripts and pipeline commands from the repository root directory.
+
 ```bash
 # Download evaluation data
 bash data/prepare_eval_data.sh

@@ -14,8 +14,4 @@ tqdm
 numpy
 pandas
 
-# Fine-tuning (used via open-instruct, not by the selection pipeline)
-# deepspeed>=0.17.0
-# accelerate>=1.6.0
-# peft>=0.17.0
-# bitsandbytes>=0.41.1
+# Fine-tuning & evaluation: see model_finetune/requirements.txt

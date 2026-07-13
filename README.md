@@ -100,11 +100,23 @@ TADS/
 │           ├── distribution_match.py # Incremental sampling (Algorithm 1)
 │           └── fusion.py            # Multi-domain voting fusion
 ├── scripts/
-│   └── run_pipeline.sh             # Run full pipeline
+│   └── run_pipeline.sh             # Run full selection pipeline
 ├── data/                           # Data directory
 │   ├── eval/                       # Evaluation datasets
 │   └── prepare_*_data.sh           # Download scripts
-├── consistency_precision_result/   # Annotation quality evaluation results
+├── model_finetune/                 # Finetuning & evaluation (see "Finetune & Eval")
+│   ├── export_train_file.py        # Materialize step-4 selected IDs into a train file
+│   ├── finetune.py                 # LoRA finetuning (open-instruct style)
+│   ├── merge_lora.py               # Merge LoRA adapter into the base model
+│   ├── run_pipeline.sh             # export -> train -> merge -> eval -> aggregate
+│   ├── read_results.py             # Aggregate metrics across benchmarks
+│   ├── requirements.txt            # Extra dependencies for finetune & eval
+│   └── eval/                       # Benchmark runners (bbh, gsm, mmlu, truthfulqa, tydiqa)
+├── consistency_precision_result/   # Annotation quality evaluation (paper Appendix D.2)
+│   ├── consistency_gpt_eval.xlsx
+│   ├── consistency_human_eval.xlsx
+│   ├── precision_gpt_eval.xlsx
+│   └── precision_human_eval.xlsx
 ├── pyproject.toml
 ├── requirements.txt
 └── README.md
@@ -112,7 +124,30 @@ TADS/
 
 ## Finetune & Eval
 
-The finetune & eval of TADS is based on [open-instruct](https://github.com/allenai/open-instruct).
+The finetune & eval code lives in [`model_finetune/`](model_finetune/). It is adapted from
+[DS2](https://github.com/UCSC-REAL/DS2), which builds on
+[open-instruct](https://github.com/allenai/open-instruct) (both Apache-2.0; see
+`model_finetune/LICENSE`). Hyperparameters default to the paper setup (Table 14):
+LoRA rank 64 / alpha 16 / dropout 0.1, bf16, max sequence length 2048, lr 1e-4 with a
+linear schedule and 0.03 warmup ratio, on `meta-llama/Meta-Llama-3.1-8B`.
+
+```bash
+# Extra dependencies (on top of the root requirements)
+pip install -r model_finetune/requirements.txt
+
+# meta-llama models are gated on Hugging Face:
+export HF_TOKEN=<your_token>
+
+# Full pipeline: export selected data -> LoRA finetune -> merge -> evaluate 5 benchmarks
+cd model_finetune
+THRESHOLD=5 bash run_pipeline.sh
+```
+
+`export_train_file.py` joins the sample IDs in `data/selected/fused_10k_gte_<t>.json`
+(produced by step 4) back against the training parquet to build the `--train_file` for
+`finetune.py`. Evaluation uses the raw benchmark data in `data/eval/` by default; point
+`EVAL_DATA_ROOT` at `data/eval/split_eval/` to evaluate strictly on the 80% held-out
+splits produced by step 1.
 
 ## Citation
 

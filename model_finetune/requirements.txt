@@ -1,0 +1,19 @@
+# Extra dependencies for finetuning & evaluation, on top of the root requirements.txt
+# (torch, transformers, datasets, vllm, pandas, numpy, tqdm come from the root file).
+
+# Finetuning
+accelerate>=1.6.0
+peft>=0.17.0
+bitsandbytes>=0.41.1      # also used by 8-bit evaluation (truthfulqa, tydiqa)
+deepspeed>=0.17.0         # imported by finetune.py (ZeRO-gathered embedding resize)
+# flash-attn              # optional but recommended: needed for --use_flash_attn
+
+# Evaluation
+openai>=1.0.0             # eval/dispatch_openai_requests.py (OpenAI-judged metrics)
+evaluate                  # exact-match/F1 metrics (gsm, bbh, tydiqa)
+fire                      # read_results.py
+sentencepiece
+tiktoken
+scipy
+protobuf
+# auto-gptq               # optional: only for the --gptq evaluation path

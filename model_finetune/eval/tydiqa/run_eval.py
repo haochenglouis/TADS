@@ -245,10 +245,20 @@ def main(args):
     print("Calculating F1, EM ...")
     metric = evaluate.load("squad")
     
+    def _squad_answers(answers):
+        # Newer `evaluate` squad metric expects answers as a dict of lists;
+        # the raw TyDiQA data stores a list of {text, answer_start} dicts.
+        if isinstance(answers, dict):
+            return answers
+        return {
+            "text": [a["text"] for a in answers],
+            "answer_start": [a["answer_start"] for a in answers],
+        }
+
     eval_scores = {}
     for lang in data_languages:
         lang_predictions = [{"id": example["id"], "prediction_text": output} for example, output in zip(test_data, outputs) if example["lang"] == lang]
-        lang_references = [{"id": example["id"], "answers": example["answers"]} for example in test_data if example["lang"] == lang]
+        lang_references = [{"id": example["id"], "answers": _squad_answers(example["answers"])} for example in test_data if example["lang"] == lang]
         eval_scores[lang] = metric.compute(predictions=lang_predictions, references=lang_references)
 
     print("Calculating recall ...")

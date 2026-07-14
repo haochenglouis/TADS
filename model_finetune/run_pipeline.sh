@@ -96,30 +96,36 @@ python merge_lora.py \
     --save_tokenizer
 
 # =================== Step 3: Evaluation ===================
-# Benchmarks and flags follow the paper setup. Evals run sequentially here;
-# with >=4 GPUs they can be parallelized by pinning CUDA_VISIBLE_DEVICES per eval.
+# Benchmarks and flags follow the paper setup. Evals run sequentially, each pinned
+# to a SINGLE GPU (the first of CUDA_VISIBLE_DEVICES). This matches the paper's
+# one-card-per-eval setup and is required for correctness: the HF scoring/generation
+# paths shard the model with device_map="balanced_low_0" when more than one GPU is
+# visible, but feed inputs to cuda:0, which crashes when the embedding layer lands on
+# another shard. With >=4 GPUs the five evals can instead be run in parallel, one card
+# each. Do NOT unset CUDA_VISIBLE_DEVICES here.
 MODEL=$MERGED_DIR
 TAG=gte_${THRESHOLD}
+EVAL_GPU=$(echo "$CUDA_VISIBLE_DEVICES" | cut -d',' -f1)
 
-echo "###### Evaluating MMLU (0-shot)"
-python -m eval.mmlu.run_eval \
+echo "###### Evaluating MMLU (0-shot) on GPU $EVAL_GPU"
+CUDA_VISIBLE_DEVICES=$EVAL_GPU python -m eval.mmlu.run_eval \
     --ntrain 0 --data_dir "$EVAL_DATA_ROOT/mmlu" --save_dir "$RESULTS_ROOT/mmlu/$TAG" \
     --model_name_or_path "$MODEL" --tokenizer_name_or_path "$MODEL" --eval_batch_size 8
 
-echo "###### Evaluating GSM8K (8-shot, vLLM)"
-python -m eval.gsm.run_eval \
+echo "###### Evaluating GSM8K (8-shot, vLLM) on GPU $EVAL_GPU"
+CUDA_VISIBLE_DEVICES=$EVAL_GPU python -m eval.gsm.run_eval \
     --data_dir "$EVAL_DATA_ROOT/gsm/" --max_num_examples 200 --save_dir "$RESULTS_ROOT/gsm/$TAG" \
     --model_name_or_path "$MODEL" --tokenizer_name_or_path "$MODEL" --n_shot 8 --use_vllm
 
-echo "###### Evaluating BBH (vLLM)"
-python -m eval.bbh.run_eval \
+echo "###### Evaluating BBH (vLLM) on GPU $EVAL_GPU"
+CUDA_VISIBLE_DEVICES=$EVAL_GPU python -m eval.bbh.run_eval \
     --data_dir "$EVAL_DATA_ROOT/bbh/" --save_dir "$RESULTS_ROOT/bbh/$TAG" \
     --model_name_or_path "$MODEL" --tokenizer_name_or_path "$MODEL" --max_num_examples_per_task 40 --use_vllm
 
-echo "###### Evaluating TruthfulQA"
+echo "###### Evaluating TruthfulQA on GPU $EVAL_GPU"
 # truth/info metrics use the allenai judge models below (~2x7B download);
 # drop them and keep "--metrics mc" for a lighter run.
-python -m eval.truthfulqa.run_eval \
+CUDA_VISIBLE_DEVICES=$EVAL_GPU python -m eval.truthfulqa.run_eval \
     --data_dir "$EVAL_DATA_ROOT/truthfulqa" --save_dir "$RESULTS_ROOT/truthfulqa/$TAG" \
     --model_name_or_path "$MODEL" --tokenizer_name_or_path "$MODEL" \
     --metrics truth info mc --preset qa \
@@ -127,8 +133,8 @@ python -m eval.truthfulqa.run_eval \
     --hf_info_model_name_or_path allenai/truthfulqa-info-judge-llama2-7B \
     --eval_batch_size 40 --load_in_8bit
 
-echo "###### Evaluating TyDiQA (1-shot)"
-python -m eval.tydiqa.run_eval \
+echo "###### Evaluating TyDiQA (1-shot) on GPU $EVAL_GPU"
+CUDA_VISIBLE_DEVICES=$EVAL_GPU python -m eval.tydiqa.run_eval \
     --data_dir "$EVAL_DATA_ROOT/tydiqa/" --n_shot 1 --max_num_examples_per_lang 100 --max_context_length 512 \
     --save_dir "$RESULTS_ROOT/tydiqa/$TAG" \
     --model_name_or_path "$MODEL" --tokenizer_name_or_path "$MODEL" --eval_batch_size 40 --load_in_8bit

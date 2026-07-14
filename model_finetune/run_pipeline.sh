@@ -31,7 +31,10 @@ EPOCHS=${EPOCHS:-3}                      # paper Table 14
 TOTAL_BATCH_SIZE=${TOTAL_BATCH_SIZE:-128}  # paper Table 14
 BATCH_SIZE_PER_GPU=${BATCH_SIZE_PER_GPU:-1}
 MAX_SEQ_LENGTH=${MAX_SEQ_LENGTH:-2048}
+USE_FLASH_ATTN=${USE_FLASH_ATTN:-1}      # set 0 if flash-attn is not installed (falls back to SDPA)
 GRADIENT_ACC_STEPS=$((TOTAL_BATCH_SIZE / NUM_GPUS / BATCH_SIZE_PER_GPU))
+FLASH_ATTN_FLAG=""
+[ "$USE_FLASH_ATTN" = "1" ] && FLASH_ATTN_FLAG="--use_flash_attn"
 
 TRAIN_FILE=selected_data/tads_10k_gte_${THRESHOLD}_dataset.json
 EVAL_DATA_ROOT=../data/eval              # or ../data/eval/split_eval for the held-out 80% splits
@@ -70,7 +73,7 @@ accelerate launch \
     --preprocessing_num_workers 16 \
     --checkpointing_steps epoch \
     --gradient_checkpointing \
-    --use_flash_attn \
+    $FLASH_ATTN_FLAG \
     --per_device_train_batch_size "$BATCH_SIZE_PER_GPU" \
     --gradient_accumulation_steps "$GRADIENT_ACC_STEPS" \
     --learning_rate 1e-4 \
